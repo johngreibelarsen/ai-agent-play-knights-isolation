@@ -7,6 +7,7 @@ import math
 import os
 import random
 import textwrap
+import time
 
 from collections import namedtuple
 from multiprocessing.pool import ThreadPool as Pool
@@ -34,7 +35,7 @@ Match = namedtuple("Match", "players initial_state time_limit match_id debug_fla
 def _run_matches(matches, name, num_processes=NUM_PROCS, debug=False):
     results = []
     pool = Pool(1) if debug else Pool(num_processes)
-    print("Running {} games:".format(len(matches)))
+    #print("Running {} games:".format(len(matches)))
     for result in pool.imap_unordered(play, matches):
         print("+" if result[0].name == name else '-', end="")
         results.append(result)
@@ -44,7 +45,7 @@ def _run_matches(matches, name, num_processes=NUM_PROCS, debug=False):
 
 def make_fair_matches(matches, results):
     new_matches = []
-    for _, game_history, match_id in results:
+    for _, game_history, match_id, _ in results:
         if len(game_history) < 2:
             logger.warn(textwrap.dedent("""\
                 Unable to duplicate match {}
@@ -94,24 +95,28 @@ def play_matches(custom_agent, test_agent, cli_args):
     # Run all matches -- must be done before fair matches in order to populate
     # the first move from each player; these moves are reused in the fair matches
     results = _run_matches(matches, custom_agent.name, cli_args.processes)
-
     if cli_args.fair_matches:
         _matches = make_fair_matches(matches, results)
         results.extend(_run_matches(_matches, custom_agent.name, cli_args.processes))
-
     wins = sum(int(r[0].name == custom_agent.name) for r in results)
-    return wins, len(matches) * (1 + int(cli_args.fair_matches))
+    nodes_expanded = [result[3] for result in results]
+    return wins, len(matches) * (1 + int(cli_args.fair_matches)), nodes_expanded
 
 
 def main(args):
+    from statistics import mean
     test_agent = TEST_AGENTS[args.opponent.upper()]
     custom_agent = Agent(CustomPlayer, "Custom Agent")
-    wins, num_games = play_matches(custom_agent, test_agent, args)
+    start_time = time.perf_counter()
+    wins, num_games, nodes_expanded = play_matches(custom_agent, test_agent, args)
+    end_time = time.perf_counter()
 
     logger.info("Your agent won {:.1f}% of matches against {}".format(
        100. * wins / num_games, test_agent.name))
     print("Your agent won {:.1f}% of matches against {}".format(
        100. * wins / num_games, test_agent.name))
+    print("Your agent expanded on average {} nodes".format(round(mean(nodes_expanded), 0)))
+    print("Your agent took on average {} seconds to finish a game".format(round( (end_time-start_time)/num_games, 2)))
     print()
 
 
