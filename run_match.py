@@ -8,6 +8,7 @@ import os
 import random
 import textwrap
 import time
+import statistics
 
 from collections import namedtuple
 from multiprocessing.pool import ThreadPool as Pool
@@ -45,7 +46,7 @@ def _run_matches(matches, name, num_processes=NUM_PROCS, debug=False):
 
 def make_fair_matches(matches, results):
     new_matches = []
-    for _, game_history, match_id, _ in results:
+    for _, game_history, match_id, _, _, _, _ in results:
         if len(game_history) < 2:
             logger.warn(textwrap.dedent("""\
                 Unable to duplicate match {}
@@ -100,7 +101,10 @@ def play_matches(custom_agent, test_agent, cli_args):
         results.extend(_run_matches(_matches, custom_agent.name, cli_args.processes))
     wins = sum(int(r[0].name == custom_agent.name) for r in results)
     nodes_expanded = [result[3] for result in results]
-    return wins, len(matches) * (1 + int(cli_args.fair_matches)), nodes_expanded
+    algo_exec_time = [result[4] for result in results]
+    depths = [result[5] for result in results]
+    plies = [result[6] for result in results]
+    return wins, len(matches) * (1 + int(cli_args.fair_matches)), nodes_expanded, algo_exec_time, depths, plies
 
 
 def main(args):
@@ -108,15 +112,22 @@ def main(args):
     test_agent = TEST_AGENTS[args.opponent.upper()]
     custom_agent = Agent(CustomPlayer, "Custom Agent")
     start_time = time.perf_counter()
-    wins, num_games, nodes_expanded = play_matches(custom_agent, test_agent, args)
+    wins, num_games, nodes_expanded, algo_exec_time, depths, plies = play_matches(custom_agent, test_agent, args)
     end_time = time.perf_counter()
 
     logger.info("Your agent won {:.1f}% of matches against {}".format(
        100. * wins / num_games, test_agent.name))
     print("Your agent won {:.1f}% of matches against {}".format(
        100. * wins / num_games, test_agent.name))
-    print("Your agent expanded on average {} nodes".format(round(mean(nodes_expanded), 0)))
-    print("Your agent took on average {} seconds to finish a game".format(round( (end_time-start_time)/num_games, 2)))
+    print("Your agent took on average {} plies to complete, min: {}, max: {}".format(mean(plies), min(plies), max(plies)))
+    print("Your agent expanded on average {} nodes, min: {}, max: {}".format(int(mean(nodes_expanded)), min(nodes_expanded), max(nodes_expanded)))
+    print("Your agent took on average {} seconds to finish a game".format(round(mean(algo_exec_time), 2)))
+    new_combined_depths = [x for l in depths for x in l] # flatten it
+    print("Your agent reached the following depths: min: {}, mean: {}, median: {}, mode: {}, max: {}".format(min(new_combined_depths),
+                                                                                                   round(statistics.mean(new_combined_depths), 2),
+                                                                                                   statistics.median(new_combined_depths),
+                                                                                                   statistics.mode(new_combined_depths),
+                                                                                                    max(new_combined_depths)))
     print()
 
 
