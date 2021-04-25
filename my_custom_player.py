@@ -1,4 +1,5 @@
 import random
+import time
 from sample_players import DataPlayer
 
 # TODO import from issolation
@@ -24,6 +25,7 @@ class CustomPlayer(DataPlayer):
     """
 
     nodes = 0
+    alpha_beta_exe_time = 0
 
     def get_action(self, state):
         """ Employ an adversarial search technique to choose an action
@@ -49,7 +51,11 @@ class CustomPlayer(DataPlayer):
             depth_limit = 5
             try:
                 for depth in range(depth_limit, depth_limit + 1):
-                    self.queue.put((self.alpha_beta_search(state, depth), CustomPlayer.nodes))
+                    start_time = time.perf_counter()
+                    result = self.alpha_beta_search(state, depth)
+                    end_time = time.perf_counter()
+                    CustomPlayer.alpha_beta_exe_time += end_time - start_time
+                    self.queue.put((result, (CustomPlayer.nodes, CustomPlayer.alpha_beta_exe_time, depth)))
             except Exception:  # At deeper levels (depths) we will experience time out exception - ignore
                 pass
         #print(f"End of method: Nodes: {CustomPlayer.nodes}, self: {self}")
@@ -74,11 +80,13 @@ class CustomPlayer(DataPlayer):
                 return gameState.utility(self.player_id)
 
             if depth_limit <= 0:
-                #return player_vs_opp_moves(gameState)
+                return baseline(gameState)
+                #return baseline_avoid_borders(gameState)
                 #return offensive_to_defensive(gameState, 3)
-                #return offensive(gameState, 3)
-                #return defensive(gameState, 3)
-                return defensive_to_offensive(gameState, 3)
+                #return offensive(gameState, 2)
+                #return defensive(gameState, 2)
+                #return defensive_to_offensive(gameState, 3)
+                #return aggresive_attack_then_aggresive_defend(gameState, 3)
 
             v = float("inf")
             for a in gameState.actions():
@@ -99,12 +107,13 @@ class CustomPlayer(DataPlayer):
                 return gameState.utility(self.player_id)
 
             if depth_limit <= 0:
-                #return player_vs_opp_moves(gameState)
+                return baseline(gameState)
+                #return baseline_avoid_borders(gameState)
                 #return offensive_to_defensive(gameState, 3)
-                #return offensive(gameState, 3)
-                #return defensive(gameState, 3)
-                return defensive_to_offensive(gameState, 3)
-
+                #return offensive(gameState, 2)
+                #return defensive(gameState, 2)
+                #return defensive_to_offensive(gameState, 3)
+                #return aggresive_attack_then_aggresive_defend(gameState, 3)
 
             v = float("-inf")
             for a in gameState.actions():
@@ -122,6 +131,21 @@ class CustomPlayer(DataPlayer):
         def baseline(gameState):
             lib_player, lib_opp = player_liberties(gameState)
             return len(lib_player) - len(lib_opp)
+
+        def avoid_borders(gameState):
+            # Get the distance to the closest border
+            loc_player = gameState.locs[self.player_id]
+            player = (loc_player % (_WIDTH + 2), loc_player // (_WIDTH + 2))
+            min_x, min_y = min(player[0], _WIDTH - 1 - player[0]), min(player[1], _HEIGHT - 1 - player[1])
+            penalty = 0
+            if min_x + min_y == 0:
+                penalty = -10
+            elif min_x + min_y == 1:
+                penalty = -5
+            return penalty
+
+        def baseline_avoid_borders(gameState):
+            return baseline(gameState) + avoid_borders(gameState)
 
         def offensive(gameState, weight):
             lib_player, lib_opp = player_liberties(gameState)
@@ -144,6 +168,14 @@ class CustomPlayer(DataPlayer):
                 return defensive(gameState, weight)
             else:
                 return offensive(gameState, weight)
+
+        def aggresive_attack_then_aggresive_defend(gameState, weight):
+            lib_player, lib_opp = player_liberties(gameState)
+            board_fields_occcupied = gameState.ply_count / (_WIDTH * _HEIGHT)
+            if board_fields_occcupied <= 0.3: # about 1/2 way through a typical game
+                return len(lib_player) - weight*len(lib_opp)*(1 - board_fields_occcupied)
+            else:
+                return weight*len(lib_player)*(1 - board_fields_occcupied) - len(lib_opp)
 
 
         CustomPlayer.nodes += 1
