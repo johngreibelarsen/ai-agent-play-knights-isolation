@@ -12,7 +12,9 @@ _WIDTH = 11
 _HEIGHT = 9
 
 # This is Alpha Beta Search
-class CustomPlayer_Alfa_Beta(DataPlayer):
+#class CustomPlayer_Alfa_Beta(DataPlayer):
+class CustomPlayer(DataPlayer):
+
     """ Implement your own agent to play knight's Isolation
 
     The get_action() method is the only required method for this project.
@@ -53,9 +55,9 @@ class CustomPlayer_Alfa_Beta(DataPlayer):
         if state.ply_count < 2:
             self.queue.put(random.choice(state.actions()))
         else:
-            depth_limit = 5
+            depth_limit = 100
             try:
-                for depth in range(depth_limit, depth_limit + 1):
+                for depth in range(1, depth_limit + 1):
                     start_time = time.perf_counter()
                     result = self.alpha_beta_search(state, depth)
                     end_time = time.perf_counter()
@@ -84,13 +86,13 @@ class CustomPlayer_Alfa_Beta(DataPlayer):
                 return gameState.utility(self.player_id)
 
             if depth_limit <= 0:
-                return baseline(gameState)
+                #return baseline(gameState)
                 #return baseline_avoid_borders(gameState)
                 #return offensive_to_defensive(gameState, 3)
                 #return offensive(gameState, 2)
                 #return defensive(gameState, 2)
                 #return defensive_to_offensive(gameState, 3)
-                #return aggresive_attack_then_aggresive_defend(gameState, 3)
+                return aggresive_attack_then_aggresive_defend(gameState, 3)
 
             v = float("inf")
             for a in gameState.actions():
@@ -111,13 +113,13 @@ class CustomPlayer_Alfa_Beta(DataPlayer):
                 return gameState.utility(self.player_id)
 
             if depth_limit <= 0:
-                return baseline(gameState)
+                #return baseline(gameState)
                 #return baseline_avoid_borders(gameState)
                 #return offensive_to_defensive(gameState, 3)
                 #return offensive(gameState, 2)
                 #return defensive(gameState, 2)
                 #return defensive_to_offensive(gameState, 3)
-                #return aggresive_attack_then_aggresive_defend(gameState, 3)
+                return aggresive_attack_then_aggresive_defend(gameState, 3)
 
             v = float("-inf")
             for a in gameState.actions():
@@ -197,7 +199,8 @@ class CustomPlayer_Alfa_Beta(DataPlayer):
         return best_move
 
 # This is Monte Carlo Tree Search
-class CustomPlayer(DataPlayer):
+#class CustomPlayer(DataPlayer):
+class CustomPlayer_MCTS(DataPlayer):
     """ Implement your own agent to play knight's Isolation
 
     The get_action() method is the only required method for this project.
