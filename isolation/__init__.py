@@ -68,17 +68,24 @@ class TimedQueue:
         self.__stop_time = self.__time_limit + time.perf_counter()
 
     def put(self, item, block=True, timeout=None):
-        if self.__stop_time and time.perf_counter() > self.__stop_time:
-            raise StopSearch
+        #print(f"Time limit: {self.__time_limit}, stop time: {self.__stop_time}")
+        time_gone = time.perf_counter()
+        if self.__stop_time and time_gone > self.__stop_time:
+            raise StopSearch(f"time_gone > self.__stop_time, {time_gone} > {self.__stop_time}; Item: {item}")
         if self.__receiver.poll():
             self.__receiver.recv()
+        #print(f"PUT ITEM : {item}" )
         self.__sender.send((getattr(self.agent, "context", None), item))
 
     def put_nowait(self, item):
+        #print(f"PUT ITEM : {item}" )
         self.put(item, block=False)
 
     def get(self, block=True, timeout=None):
-        return self.__receiver.recv()
+        pipe_value = self.__receiver.recv()
+        #print(f"Received from pipe: {pipe_value} from queue: {self}")
+        #return self.__receiver.recv()
+        return pipe_value
 
     def get_nowait(self):
         return self.get(block=False)
@@ -119,6 +126,9 @@ def _play(agents, game_state, time_limit, match_id, debug=False):
     initial_state = game_state
     game_history = []
     winner = None
+    nodes_expanded = 0
+    algo_exec_time = 0.0
+    depth = []
     status = Status.NORMAL
     players = [a.agent_class(player_id=i) for i, a in enumerate(agents)]
     logger.info(GAME_INFO.format(initial_state, *agents))
@@ -130,6 +140,11 @@ def _play(agents, game_state, time_limit, match_id, debug=False):
 
         try:
             action = fork_get_action(game_state, players[active_idx], time_limit, debug)
+            if isinstance(action, tuple):
+                nodes_expanded += action[1][0]
+                algo_exec_time += action[1][1]
+                depth.append(action[1][2])
+                action = action[0]
         except Empty:
             status = Status.TIMEOUT
             logger.warn(textwrap.dedent("""\
@@ -158,7 +173,8 @@ def _play(agents, game_state, time_limit, match_id, debug=False):
             winner, loser = loser, winner  # swap winner/loser if active player won
 
     logger.info(RESULT_INFO.format(status, game_state, game_history, winner, loser))
-    return winner, game_history, match_id
+    #print(f"Nodes expaanded: {nodes_expanded}")
+    return winner, game_history, match_id, nodes_expanded, algo_exec_time, depth, game_state.ply_count
 
 
 def fork_get_action(game_state, active_player, time_limit, debug=False):
@@ -179,6 +195,7 @@ def fork_get_action(game_state, active_player, time_limit, debug=False):
         finally:
             if p and p.is_alive(): p.terminate()
     new_context, action = action_queue.get_nowait()  # raises Empty if agent did not respond
+    #print(f"HERRE Recived action: {action} from queue ID {action_queue}; acctivee plaayer: {active_player}")
     active_player.context = new_context
     return action
 

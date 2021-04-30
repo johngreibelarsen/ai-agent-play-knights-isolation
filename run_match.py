@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 NUM_PROCS = 1
 NUM_ROUNDS = 5  # number times to replicate the match; increase for higher confidence estimate
-TIME_LIMIT = 150  # number of milliseconds before timeout
+TIME_LIMIT = 20000  # number of milliseconds before timeout
 
 TEST_AGENTS = {
     "RANDOM": Agent(RandomPlayer, "Random Agent"),
@@ -106,6 +106,12 @@ def play_matches(custom_agent, test_agent, cli_args):
     plies = [result[6] for result in results]
     return wins, len(matches) * (1 + int(cli_args.fair_matches)), nodes_expanded, algo_exec_time, depths, plies
 
+def flatten(list_of_lists):
+    if len(list_of_lists) == 0:
+        return list_of_lists
+    if isinstance(list_of_lists[0], list):
+        return flatten(list_of_lists[0]) + flatten(list_of_lists[1:])
+    return list_of_lists[:1] + flatten(list_of_lists[1:])
 
 def main(args):
     from statistics import mean
@@ -122,13 +128,16 @@ def main(args):
     print("Your agent took on average {} plies to complete, min: {}, max: {}".format(mean(plies), min(plies), max(plies)))
     print("Your agent expanded on average {} nodes, min: {}, max: {}".format(int(mean(nodes_expanded)), min(nodes_expanded), max(nodes_expanded)))
     print("Your agent took on average {} seconds to finish a game".format(round(mean(algo_exec_time), 2)))
-    new_combined_depths = [x for l in depths for x in l] # flatten it
+    #print(f"Depths: {depths}")
+    #print(f"Depths: {flatten(depths)}")
+    #new_combined_depths = [x for l in depths for x in l] # flatten it for alpha beta
+    new_combined_depths = flatten(depths) # flatten for MCTS
     print("Your agent reached the following depths: min: {}, mean: {}, median: {}, mode: {}, max: {}".format(min(new_combined_depths),
                                                                                                    round(statistics.mean(new_combined_depths), 2),
                                                                                                    statistics.median(new_combined_depths),
                                                                                                    statistics.mode(new_combined_depths),
                                                                                                     max(new_combined_depths)))
-    print()
+    #print(f"Exec. time: {end_time-start_time}")
 
 
 if __name__ == "__main__":
