@@ -7,8 +7,6 @@ import math
 import os
 import random
 import textwrap
-import time
-import statistics
 
 from collections import namedtuple
 from multiprocessing.pool import ThreadPool as Pool
@@ -21,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 NUM_PROCS = 1
 NUM_ROUNDS = 5  # number times to replicate the match; increase for higher confidence estimate
-TIME_LIMIT = 20000  # number of milliseconds before timeout
+TIME_LIMIT = 150  # number of milliseconds before timeout
 
 TEST_AGENTS = {
     "RANDOM": Agent(RandomPlayer, "Random Agent"),
@@ -36,7 +34,7 @@ Match = namedtuple("Match", "players initial_state time_limit match_id debug_fla
 def _run_matches(matches, name, num_processes=NUM_PROCS, debug=False):
     results = []
     pool = Pool(1) if debug else Pool(num_processes)
-    #print("Running {} games:".format(len(matches)))
+    print("Running {} games:".format(len(matches)))
     for result in pool.imap_unordered(play, matches):
         print("+" if result[0].name == name else '-', end="")
         results.append(result)
@@ -46,7 +44,7 @@ def _run_matches(matches, name, num_processes=NUM_PROCS, debug=False):
 
 def make_fair_matches(matches, results):
     new_matches = []
-    for _, game_history, match_id, _, _, _, _ in results:
+    for _, game_history, match_id in results:
         if len(game_history) < 2:
             logger.warn(textwrap.dedent("""\
                 Unable to duplicate match {}
@@ -96,48 +94,25 @@ def play_matches(custom_agent, test_agent, cli_args):
     # Run all matches -- must be done before fair matches in order to populate
     # the first move from each player; these moves are reused in the fair matches
     results = _run_matches(matches, custom_agent.name, cli_args.processes)
+
     if cli_args.fair_matches:
         _matches = make_fair_matches(matches, results)
         results.extend(_run_matches(_matches, custom_agent.name, cli_args.processes))
-    wins = sum(int(r[0].name == custom_agent.name) for r in results)
-    nodes_expanded = [result[3] for result in results]
-    algo_exec_time = [result[4] for result in results]
-    depths = [result[5] for result in results]
-    plies = [result[6] for result in results]
-    return wins, len(matches) * (1 + int(cli_args.fair_matches)), nodes_expanded, algo_exec_time, depths, plies
 
-def flatten(list_of_lists):
-    if len(list_of_lists) == 0:
-        return list_of_lists
-    if isinstance(list_of_lists[0], list):
-        return flatten(list_of_lists[0]) + flatten(list_of_lists[1:])
-    return list_of_lists[:1] + flatten(list_of_lists[1:])
+    wins = sum(int(r[0].name == custom_agent.name) for r in results)
+    return wins, len(matches) * (1 + int(cli_args.fair_matches))
+
 
 def main(args):
-    from statistics import mean
     test_agent = TEST_AGENTS[args.opponent.upper()]
     custom_agent = Agent(CustomPlayer, "Custom Agent")
-    start_time = time.perf_counter()
-    wins, num_games, nodes_expanded, algo_exec_time, depths, plies = play_matches(custom_agent, test_agent, args)
-    end_time = time.perf_counter()
+    wins, num_games = play_matches(custom_agent, test_agent, args)
 
     logger.info("Your agent won {:.1f}% of matches against {}".format(
        100. * wins / num_games, test_agent.name))
     print("Your agent won {:.1f}% of matches against {}".format(
        100. * wins / num_games, test_agent.name))
-    print("Your agent took on average {} plies to complete, min: {}, max: {}".format(mean(plies), min(plies), max(plies)))
-    print("Your agent expanded on average {} nodes, min: {}, max: {}".format(int(mean(nodes_expanded)), min(nodes_expanded), max(nodes_expanded)))
-    print("Your agent took on average {} seconds to finish a game".format(round(mean(algo_exec_time), 2)))
-    #print(f"Depths: {depths}")
-    #print(f"Depths: {flatten(depths)}")
-    #new_combined_depths = [x for l in depths for x in l] # flatten it for alpha beta
-    new_combined_depths = flatten(depths) # flatten for MCTS
-    print("Your agent reached the following depths: min: {}, mean: {}, median: {}, mode: {}, max: {}".format(min(new_combined_depths),
-                                                                                                   round(statistics.mean(new_combined_depths), 2),
-                                                                                                   statistics.median(new_combined_depths),
-                                                                                                   statistics.mode(new_combined_depths),
-                                                                                                    max(new_combined_depths)))
-    #print(f"Exec. time: {end_time-start_time}")
+    print()
 
 
 if __name__ == "__main__":

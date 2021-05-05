@@ -34,7 +34,7 @@ class Action(IntEnum):
 _ACTIONSET = set(Action)  # used for efficient membership testing
 
 
-class Isolation(NamedTuple('Isolation', [('board', int), ('ply_count', int), ('locs', int), ('expanded_nodes', int)])):
+class Isolation(NamedTuple('Isolation', [('board', int), ('ply_count', int), ('locs', int)])):
     """ Bitboard implementation of knight's Isolation game state
 
     Subclassing NamedTuple makes the states (effectively) immutable
@@ -56,8 +56,8 @@ class Isolation(NamedTuple('Isolation', [('board', int), ('ply_count', int), ('l
         each player is None while the player has not yet placed their piece
         on the board; otherwise an integer.
     """
-    def __new__(cls, board=_BLANK_BOARD, ply_count=0, locs=(None, None), expanded_nodes=0):
-        return super(Isolation, cls).__new__(cls, board, ply_count, locs, expanded_nodes)
+    def __new__(cls, board=_BLANK_BOARD, ply_count=0, locs=(None, None)):
+        return super(Isolation, cls).__new__(cls, board, ply_count, locs)
 
     def actions(self):
         """ Return a list of the legal actions in the current state
@@ -110,7 +110,7 @@ class Isolation(NamedTuple('Isolation', [('board', int), ('ply_count', int), ('l
         # update the board to block the ending cell from the new move
         board = self.board ^ (1 << player_location)
         locs = (self.locs[0], player_location) if self.player() else (player_location, self.locs[1])
-        return Isolation(board=board, ply_count=self.ply_count + 1, locs=locs, expanded_nodes=self.expanded_nodes)
+        return Isolation(board=board, ply_count=self.ply_count + 1, locs=locs)
 
     def terminal_test(self):
         """ Return True if either player has no legal moves, otherwise False

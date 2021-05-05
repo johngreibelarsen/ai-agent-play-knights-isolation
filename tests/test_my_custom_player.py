@@ -24,12 +24,14 @@ class BaseCustomPlayerTest(unittest.TestCase):
 
 class CustomPlayerGetActionTest(BaseCustomPlayerTest):
     def _test_state(self, state):
+        print("_test_state started")
         agent = CustomPlayer(state.ply_count % 2)
         action = fork_get_action(state, agent, self.time_limit)
         self.assertTrue(action in state.actions(), dedent("""\
             Your agent did not call self.queue.put() with a valid action \
             within {} milliseconds from state {}
         """).format(self.time_limit, state))
+        print("_test_state ended")
 
     def test_get_action_player1(self):
         """ get_action() calls self.queue.put() before timeout on an empty board """
@@ -50,11 +52,13 @@ class CustomPlayerGetActionTest(BaseCustomPlayerTest):
 
 class CustomPlayerPlayTest(BaseCustomPlayerTest):
     def test_custom_player(self):
-        """ CustomPlayer successfully completes a game against itself """
+        """ CustomPlayer successfully completes a game against itself - Hurray """
+        print("test_custom_player started")
         agents = (Agent(CustomPlayer, "Player 1"),
                   Agent(CustomPlayer, "Player 2"))
         initial_state = Isolation()
         winner, game_history, _ = play((agents, initial_state, self.time_limit, 0))
+        print(game_history)
         
         state = initial_state
         moves = deque(game_history)
